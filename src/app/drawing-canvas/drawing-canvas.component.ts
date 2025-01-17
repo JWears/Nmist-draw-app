@@ -62,4 +62,8 @@ export class DrawingCanvasComponent implements AfterViewInit {
       this.canvasCtx?.fillRect(0, 0, 280, 280);
     }
   }
+
+  predict() {
+
+  }
 }
