@@ -1,4 +1,5 @@
 import { AfterViewInit, Component } from '@angular/core';
+import * as tf from '@tensorflow/tfjs';
 
 @Component({
   selector: 'app-drawing-canvas',
@@ -8,13 +9,22 @@ import { AfterViewInit, Component } from '@angular/core';
   styleUrl: './drawing-canvas.component.less'
 })
 export class DrawingCanvasComponent implements AfterViewInit {
+  /**
+   *
+   */
+  constructor() {
+    this.loadModel();
+  }
+
   mouseDownState: boolean = false;
   canvasCtx: CanvasRenderingContext2D | null = null;
   canvasElement: HTMLCanvasElement | null = null;
+  model: tf.LayersModel | null = null;
   lastX: number = 0;
   lastY: number = 0;
-  ngAfterViewInit(): void {
-    console.log("AfterView innit");
+
+  PredictedValue: number | null = null;
+  ngAfterViewInit() {
     this.canvasElement = document.getElementById("mnist-canvas-id") as HTMLCanvasElement;
     this.canvasCtx = this.canvasElement?.getContext("2d");
     this.canvasElement?.addEventListener("mousedown", this.mouseDown.bind(this));
@@ -60,10 +70,41 @@ export class DrawingCanvasComponent implements AfterViewInit {
     if (this.canvasCtx) {
       this.canvasCtx.fillStyle = "black";
       this.canvasCtx?.fillRect(0, 0, 280, 280);
+      this.PredictedValue = null;
     }
   }
 
-  predict() {
+  preprocessImage(imageData: ImageData) {
+    const tensor = tf.browser.fromPixels(imageData).resizeNearestNeighbor([28, 28]).mean(2).toFloat().div(tf.scalar(255.0)).expandDims(0);
+    return tensor.reshape([1, 784]);
+  }
 
+  predict() {
+    if (!this.model) {
+      console.error("Model not loaded");
+      return;
+    }
+
+    const canvas = document.getElementById("mnist-canvas-id") as HTMLCanvasElement;
+    const ctx = canvas.getContext("2d");
+    const imgData = ctx?.getImageData(0, 0, canvas.width, canvas.height);
+    if (!imgData) {
+      console.error("No image data");
+      return;
+    }
+
+    let tensor = this.preprocessImage(imgData);
+
+    const predictValue = this.model.predict(tensor) as tf.Tensor;
+    this.PredictedValue = predictValue.argMax(1).dataSync()[0];
+    }
+
+  async loadModel() {
+    try {
+      this.model = await tf.loadLayersModel("../../assets/model.json");
+      console.log("Model loaded successfully");
+    } catch (error) {
+      console.error("Error loading model:", error);
+    }
   }
 }
